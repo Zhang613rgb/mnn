@@ -1,13 +1,13 @@
 name: Build MNN-LLM Android APK (OpenCL + QNN/NPU)
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:  # 手动触发
   push:
     branches: [main]
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -15,21 +15,21 @@ jobs:
 
     steps:
       - name: Checkout MNN
-        uses: actions/checkout@v4  # 已支持 Node.js 24
+        uses: actions/checkout@v4
         with:
           repository: alibaba/MNN
           submodules: recursive
           path: MNN
 
       - name: Setup JDK 17
-        uses: actions/setup-java@v4  # 已支持 Node.js 24
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
       - name: Setup Android SDK & NDK
         uses: android-actions/setup-android@v3
-        
+
       - name: Install NDK
         run: |
           sdkmanager "ndk;26.1.10909125"
@@ -50,7 +50,15 @@ jobs:
             -DMNN_WITH_PLUGIN=true \
             -DLLM_SUPPORT_VISION=true \
             -DLLM_SUPPORT_AUDIO=true \
-            -DMNN_BUILD_AUDIO=true
+            -DMNN_BUILD_AUDIO=true 2>&1 | tee build.log
+
+      - name: Upload Build Log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: MNN/project/android/build_64/build.log
+          retention-days: 30
 
       - name: Copy .so files to jniLibs
         run: |
