@@ -35,18 +35,17 @@ jobs:
           sdkmanager "ndk;26.1.10909125"
           echo "ANDROID_NDK=$ANDROID_HOME/ndk/26.1.10909125" >> $GITHUB_ENV
 
-      - name: Build MNN native libs (OpenCL + QNN + LLM)
+      - name: Build MNN native libs (OpenCL + LLM, QNN disabled)
         run: |
           cd MNN/project/android
           mkdir -p build_64
           cd build_64
-          # build_64.sh 默认已开启 MNN_OPENCL=ON
-          # 额外传入 LLM、QNN、多模态等参数
+          # QNN 已在 CI 中禁用以避免缺少私有 SDK 导致失败
           bash ../build_64.sh \
             -DMNN_BUILD_LLM=true \
             -DMNN_ARM82=true \
             -DMNN_CPU_WEIGHT_DEQUANT_GEMM=true \
-            -DMNN_QNN=true \
+            -DMNN_QNN=false \
             -DMNN_WITH_PLUGIN=true \
             -DLLM_SUPPORT_VISION=true \
             -DLLM_SUPPORT_AUDIO=true \
@@ -60,13 +59,26 @@ jobs:
           path: MNN/project/android/build_64/build.log
           retention-days: 30
 
+      - name: Show build errors (summary)
+        if: always()
+        run: |
+          LOG=MNN/project/android/build_64/build.log
+          if [ -f "$LOG" ]; then
+            echo "==== First 200 lines of build.log ===="
+            head -n 200 "$LOG" || true
+            echo "==== Error-related lines ===="
+            grep -n -E "error:|fatal error|undefined reference|internal compiler error|segmentation fault|Killed" "$LOG" || true
+          else
+            echo "No build.log found"
+          fi
+
       - name: Copy .so files to jniLibs
         run: |
           DEST=MNN/project/android/apps/MnnLlmApp/app/src/main/jniLibs/arm64-v8a
           mkdir -p $DEST
           find MNN/project/android/build_64 -name "*.so" -exec cp -v {} $DEST/ \;
           echo "=== Libraries ==="
-          ls -lh $DEST/
+          ls -lh $DEST/ || true
 
       - name: Build debug APK
         run: |
